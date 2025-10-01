@@ -54,13 +54,22 @@ def load_transactions():
     return df
 
 def save_investments(ticker, df_stock):
+    if "Date" not in df_stock.columns:
+        df_stock = df_stock.reset_index()
+
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     for _, row in df_stock.iterrows():
         cursor.execute("""
         INSERT INTO investments (ticker, date, close_price, ma_200, signal)
         VALUES (?, ?, ?, ?, ?)
-        """, (ticker, row['Date'], row['Close'], row['200_MA'], int(row['Signal'])))
+        """, (
+            ticker,
+            str(row["Date"]),  
+            float(row["Close"]),
+            float(row["200_MA"]),
+            int(row["Signal"])
+        ))
     conn.commit()
     conn.close()
 
@@ -102,7 +111,7 @@ if page == "📊 My Savings":
         df["Cumulative"] = df["amount"].cumsum()
 
         st.subheader("📊 Summary")
-        st.metric("Current Balance", f"${df['amount'].sum():,.2f}")
+        st.metric("Current Balance", f"€{df['amount'].sum():,.2f}")
         st.bar_chart(df.groupby("category")["amount"].sum())
 
         st.subheader("💹 Savings Growth")
@@ -128,6 +137,14 @@ elif page == "📈 Investment Strategy":
                 start=start_date.strftime("%Y-%m-%d"),
                 end=end_date.strftime("%Y-%m-%d")
             )
+            if df_stock.index.name == "Date":
+                df_stock = df_stock.reset_index()
+            elif df_stock.index.dtype == "datetime64[ns]":
+                df_stock = df_stock.reset_index()
+            if "date" in df_stock.columns:
+                df_stock.rename(columns={"date": "Date"}, inplace=True)
+            if "index" in df_stock.columns:
+                df_stock.rename(columns={"index": "Date"}, inplace=True)
         except Exception as e:
             st.error(f"Failed to load stock data: {e}")
         else:
